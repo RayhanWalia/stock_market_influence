@@ -1,35 +1,19 @@
 #### Preamble ####
-# Purpose: Clean the survey data downloaded from [...UPDATE ME!!!!!]
-# Author: Rohan Alexander [CHANGE THIS TO YOUR NAME!!!!]
-# Data: 3 January 2021
-# Contact: rohan.alexander@utoronto.ca [PROBABLY CHANGE THIS ALSO!!!!]
+# Purpose: Clean the data from StatCan
+# Author: Rayhan Walia
+# Data: April 2021
+# Contact: rayhan.walia@mail.utoronto.ca
 # License: MIT
 # Pre-requisites: 
-# - Need to have downloaded the ACS data and saved it to inputs/data
-# - Don't forget to gitignore it!
-# - Change these to yours
-# Any other information needed?
+# - Must have raw_stock.csv file (inputs/data) from data_load script
 
-somethi
 #### Workspace setup ####
 # Use R Projects, not setwd().
 library(haven)
 library(tidyverse)
 # Read in the raw data. 
-raw_data <- readr::read_csv("inputs/data/raw_data.csv"
-                     )
-# Just keep some variables that may be of interest (change 
-# this depending on your interests)
-names(raw_data)
+raw_data <- readr::read_csv("inputs/data/raw_stock.csv")
 
-reduced_data <- 
-  raw_data %>% 
-  select(first_col, 
-         second_col)
-rm(raw_data)
-         
-
-#### What's next? ####
 
 
 
