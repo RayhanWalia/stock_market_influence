@@ -1,12 +1,11 @@
 ---
-title: "My title"
-subtitle: "My subtitle if needed"
+title: "The Impact of Various Economic Sectors on the Price of the S&P/TSX Composite Index"
+subtitle: "The Analysis of the Canadian Stock Market from 1998-2022"
 author: 
-  - First author
-  - Another author
-thanks: "Code and data are available at: LINK."
+  - Rayhan Walia
+thanks: "Code and data are available at: https://github.com/RayhanWalia/stock_market_influence"
 date: "`r format(Sys.time(), '%d %B %Y')`"
-abstract: "First sentence. Second sentence. Third sentence. Fourth sentence."
+abstract: "In this report, we focus on the primary and secondary sectors of the economy, and analyze their influence on the S&P/TSX Composite Index. This is important to be able to predict the reaction of the market (the composite index) to potential movements in individual sectors. The results of this report could help governements with maneuvering money within sectors to maintain the market. It was found that primarily the energy, materials and utilities sector impacted the market; and therefore the Canadian economy."
 output:
   bookdown::pdf_document2
 toc: FALSE
@@ -22,81 +21,39 @@ library(palmerpenguins)
 
 # Introduction
 
-You can and should cross-reference sections and sub-sections. For instance, Section \@ref(data). R Markdown automatically makes the sections lower case and adds a dash to spaces to generate labels, for instance, Section \@ref(first-discussion-point). 
+The stock market is arguably the best indicator of the health of an economy, and is used as a barometer of what cycle the economy is in [@stockimportance]. With 48 countries having stock exchanges [@allcountrystock], Canada is amongst them. The study of various factors on the economy is essential for federal/central banks, as well as the regulation of monetary policy [@government]. This allows the growth of any economy. To further study the economy, it is broken-up into four major sectors; primary, secondary, tertiary and quaternary. The primary and secondary sectors account for raw materials and finished goods respectively, while the tertiary and quaternary sectors represent service and public sectors [@sectors].
+
+While all companies are individually important, only a few have a real impact on the market. The S&P/TSX Composite is an equity index that tracks the performance of the largest 230-250 stocks (at any given time) on the Toronto Stock Exchange [@tsxinfo] (largest by market capitalization). It is often used as an indicator of the strength of the Canadian economy [@tsxinfo]. All of the sectors we will be analyzing today are publicly traded indices on the Toronto Stock Exchange, that comprise of the largest companies in their respective sectors. Each will be detailed in Section \@ref(data).
+
+A note; a market index is simply a method of measuring the performance of various securities at once; i.e. a singular security representing numerous others [@index]. This is how we are easily able to measure the health of individual sectors, without observing each subsequent security under them.
+
+In this report; we focus on the primary and secondary sectors of the economy, and view their influence on the S&P/TSX Composite Index; from 1998 until 2022. With data from [@data]; this comprises of the energy, industrial, materials and utilities sectors, provided with their respective indices (the Standard and Poor's/Toronto Stock Exchange Canadian Energy Index, '' '' Canadian Industrial Index, '' '' Canadian Materials Index, '' '' Canadian Utilities Index). Data was provided for past dates (from 1958), however all the indices were not present since then, making it hard to quantitatively measure the value of sectors. This data therefore begins at the birth of these sectors (all in 1998). The hope with this analysis is that it provides key insights to the workings of major sectors of the Canadian economy, and their overall impact on it.
+
+Via applying a linear model to our data (with the S&P/TSX Composite as our response variable), we can attempt to analyze the factors influencing the response. Via first checking, then correcting assumptions to the linear model, we are able to perform statistical tests; such as t-tests [@ttest] and ANCOVA-F tests [@ftest], that allow us to deduce quantitative measures of the data.  Note, we use the model to, "help us explore and understand the data that we have" [@model], meaning they are not absolute, or even \textit{really} present in the data. We are simply aiming to make sense of what is provided, i.e. further understand the data set, and a model helps us achieve that [@model2].
+
 
 
 
 # Data
 
-Our data is of penguins (Figure \@ref(fig:bills)).
-
-```{r bills, fig.cap="Bills of penguins", echo = FALSE}
-ggplot(penguins, aes(x = island, fill = species)) +
-  geom_bar(alpha = 0.8) +
-  scale_fill_manual(values = c("darkorange","purple","cyan4"),
-                    guide = FALSE) +
-  theme_minimal() +
-  facet_wrap(~species, ncol = 1) +
-  coord_flip()
-```
-
-Talk more about it.
-
-Also bills and their average (Figure \@ref(fig:billssssss)). (Notice how you can change the height and width so they don't take the whole page?)
-
-```{r billssssss, fig.cap="More bills of penguins", echo = FALSE, fig.width=8, fig.height=4}
-
-# This needs to be about the random data tha tI sasmpled?
-ggplot(penguins, aes(x = island, fill = species)) +
-  geom_bar(alpha = 0.8) +
-  scale_fill_manual(values = c("darkorange","purple","cyan4"),
-                    guide = FALSE) +
-  theme_minimal() +
-  facet_wrap(~species, ncol = 1) +
-  coord_flip()
-```
-
-Talk way more about it. 
-
-
 
 # Model
-
-\begin{equation}
-Pr(\theta | y) = \frac{Pr(y | \theta) Pr(\theta)}{Pr(y)}  (\#eq:bayes)
-\end{equation}
-
-Equation \@ref(eq:bayes) seems useful, eh?
-
-Here's a dumb example of how to use some references: In paper we run our analysis in `R` [@citeR]. We also use the `tidyverse` which was written by @thereferencecanbewhatever If we were interested in baseball data then @citeLahman could be useful. 
-
-We can use maths by including latex between dollar signs, for instance $\theta$.
 
 
 # Results
 
 # Discussion
 
-## First discussion point
 
-If my paper were 10 pages, then should be be at least 2.5 pages. The discussion is a chance to show off what you know and what you learnt from all this. 
+## Weaknesses
 
-## Second discussion point
 
-## Third discussion point
-
-## Weaknesses and next steps
-
-Weaknesses and next steps should also be included.
 
 \newpage
 
 \appendix
 
 # Appendix {-}
-
-
-# Additional details
 
 
 \newpage
