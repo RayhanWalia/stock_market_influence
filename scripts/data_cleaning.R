@@ -1,11 +1,11 @@
 #### Preamble ####
-# Purpose: Clean the data from StatCan
+# Purpose: Clean the raw data, create readable data frames
 # Author: Rayhan Walia
 # Data: April 2021
 # Contact: rayhan.walia@mail.utoronto.ca
 # License: MIT
 # Pre-requisites: 
-# - Must have raw_stock.csv file (inputs/data) from data_load script
+# - Must have raw_stock.csv file (inputs/data); from data_load script
 
 #### Workspace setup ####
 library(haven)
@@ -14,6 +14,8 @@ library(stringr)
 library(car)
 library(janitor)
 library(visdat)
+library(gridExtra)
+library(reshape2)
 
 # Read in the raw data. 
 raw_data <- readr::read_csv("inputs/data/raw_stock.csv")
@@ -49,6 +51,8 @@ remove_date <- unique(remove_date)
 
 data <- data %>% 
   filter(!date %in% remove_date)
+
+data <- data.frame(data)
 
 #missing data
 vis_miss(data$index)
@@ -170,21 +174,35 @@ ggplot(data = total_plot, aes(y=rel_value, x=date))+geom_point(aes(col=index))+
                                                   "Industrial", "IT", "Materials", "Metals", 
                                                   "Communication", "Utilities", "Dividends"))
 
-ggplot(data=test, aes(y=rel_value,x=date))+geom_point(aes(col=index))
-total <- rbind(market, tsx_sixty, discretionary, staples, energy, financial, gold, 
-               industrial, it, materials, metals, comm, utilities, pe, dividend) 
 
 
-total <- cbind(market$value,market$date, tsx_sixty$value, energy$value,
+total <- cbind(market$value,market$date, energy$value,
                industrial$value, materials$value, utilities$value)
-colnames(total) <- c('sptsx','date','sp60','energy','industrial','materials','utilities')
-
-test <- cbind(market$value, gold$value)
-colnames(test) <- c('1','2')
+colnames(total) <- c('sptsx','date','energy','industrial','materials','utilities')
 total <- data.frame(total)
-mod <- glm(sptsx~., data = total, family = quasi)
-summary(mod)
 
-pairs(total[,2:7])
+write_csv(total, "outputs/data/data_clean.csv")
 
 
+total2 <- cbind(market$value,market$date,
+               industrial$value, materials$value, utilities$value)
+colnames(total2) <- c('sptsx','date','industrial','materials','utilities')
+
+#for summary statistics
+#making relative value data
+rel_total <- cbind(market$date, market$rel_value, energy$rel_value,
+               industrial$rel_value, materials$rel_value, utilities$rel_value)
+colnames(rel_total) <- c('date','sptsx','energy','industrial','materials','utilities')
+rel_total <- data.frame(rel_total)
+
+write_csv(rel_total, "outputs/data/data_rel.csv")
+
+
+##plotting relative values of all indices
+col_plot <- c('sptsx', 'energy', 'industrial', 'materials', 'utilities')
+dlong <- melt(rel_total[,c("date", col_plot)], id.vars="date")
+
+#"value" and "variable" are default output column names of melt()
+ggplot(dlong, aes(date,value, col=variable)) +
+  geom_point()+geom_line()+
+  labs(y='Relative value')
