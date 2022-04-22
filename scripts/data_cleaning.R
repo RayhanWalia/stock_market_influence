@@ -4,12 +4,11 @@
 # Data: April 2021
 # Contact: rayhan.walia@mail.utoronto.ca
 # License: MIT
-# Pre-requisites: 
-# - Must have raw_stock.csv file (inputs/data); from data_load script
 
 #### Workspace setup ####
 library(haven)
 library(tidyverse)
+library(ggplot2)
 library(stringr)
 library(car)
 library(janitor)
@@ -37,7 +36,10 @@ data <- clean %>%
   filter(toronto_stock_exchange_statistics != "Standard and Poor's/Toronto Stock Exchange Composite Index, high") %>% 
   filter(toronto_stock_exchange_statistics != "Toronto Stock Exchange, metals and minerals, closing quotations") %>% 
   filter(toronto_stock_exchange_statistics != "Toronto Stock Exchange, paper and forest products, closing quotations") %>% 
-  filter(toronto_stock_exchange_statistics != "Toronto Stock Exchange, merchandising, closing quotations")
+  filter(toronto_stock_exchange_statistics != "Toronto Stock Exchange, price earnings ratio, closing quotations") %>% 
+  filter(toronto_stock_exchange_statistics != "Toronto Stock Exchange, merchandising, closing quotations") %>% 
+  filter(toronto_stock_exchange_statistics != "Toronto Stock Exchange, stock dividend yields (composite), closing quotations")
+
 
 names(data)[names(data) == 'toronto_stock_exchange_statistics'] = 'index'
 
@@ -49,13 +51,14 @@ for (i in 1:length(data$index)){
 
 remove_date <- unique(remove_date)
 
-data <- data %>% 
-  filter(!date %in% remove_date)
+# no missing data
+#data <- data %>% 
+#  filter(!date %in% remove_date) 
 
 data <- data.frame(data)
 
 #missing data
-vis_miss(data$index)
+#vis_miss(data$index)
 
 market <- data %>% 
   filter(index == "Standard and Poor's/Toronto Stock Exchange Composite Index, close")
@@ -95,12 +98,6 @@ comm <- data %>%
 
 utilities <- data %>% 
   filter(index == "Standard and Poor's/Toronto Stock Exchange Canadian Utilities Index")
-  
-pe <- data %>% 
-  filter(index == "Toronto Stock Exchange, price earnings ratio, closing quotations")
-
-dividend <- data %>% 
-  filter(index == "Toronto Stock Exchange, stock dividend yields (composite), closing quotations")
 
 #creating relative variables to compare
 max_val <- max(market$value)
@@ -183,11 +180,6 @@ total <- data.frame(total)
 
 write_csv(total, "outputs/data/data_clean.csv")
 
-
-total2 <- cbind(market$value,market$date,
-               industrial$value, materials$value, utilities$value)
-colnames(total2) <- c('sptsx','date','industrial','materials','utilities')
-
 #for summary statistics
 #making relative value data
 rel_total <- cbind(market$date, market$rel_value, energy$rel_value,
@@ -196,13 +188,3 @@ colnames(rel_total) <- c('date','sptsx','energy','industrial','materials','utili
 rel_total <- data.frame(rel_total)
 
 write_csv(rel_total, "outputs/data/data_rel.csv")
-
-
-##plotting relative values of all indices
-col_plot <- c('sptsx', 'energy', 'industrial', 'materials', 'utilities')
-dlong <- melt(rel_total[,c("date", col_plot)], id.vars="date")
-
-#"value" and "variable" are default output column names of melt()
-ggplot(dlong, aes(date,value, col=variable)) +
-  geom_point()+geom_line()+
-  labs(y='Relative value')
