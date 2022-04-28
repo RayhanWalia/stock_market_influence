@@ -14,7 +14,9 @@ The data is available at https://www150.statcan.gc.ca
 
 It is also included in this repository (after being converted to a .csv file), in the directory "inputs/data/raw_stock.csv"
 
-## Building the Report
+## Processing Data
+
+The raw data is then cleaned to be able to easily interpret and perform analysis, found in 'outputs/data/data_clean.csv'
 
 
 ## File Structure
@@ -23,10 +25,14 @@ It is also included in this repository (after being converted to a .csv file), i
 - In this folder, you will find the raw data.
 
 2. Outputs
-- In this folder you will find a reference file, RMarkdown file, and a pdf document of the paper.
+- Data
+  - In this sub-folder, the cleaned data and 'relative' data are available
+  
+- Paper
+  - In this sub-folder you will find a reference file, RMarkdown file, and a pdf document of the paper.
 
 3. Scripts
-- This folder contains R-Scripts to retrieve, clean, and do analysis with the dataset.
+- This folder contains R-Scripts to retrieve, clean, and do analysis with the dataset (model building).
 
 4. Licence
 - Typical MIT licence for re usability
