@@ -5,55 +5,624 @@ author:
   - Rayhan Walia
 thanks: "Code and data are available at: https://github.com/RayhanWalia/stock_market_influence"
 date: "`r format(Sys.time(), '%d %B %Y')`"
-abstract: "In this report, we focus on the primary and secondary sectors of the economy and analyze their influence on the S&P/TSX Composite Index. This is important to be able to predict the reaction of the market (the composite index) to potential movements in individual sectors. The results of this report could help governments with maneuvering money within sectors to maintain the market. It was found that primarily the energy, materials and utility sector impacted the market; and therefore the Canadian economy."
+abstract: "In this report, we focus on the primary and secondary sectors of the economy and analyze their influence on the S&P/TSX Composite Index. This is important to be able to predict the reaction of the market (the composite index) to potential movements in individual sectors. The results of this report could help governments with maneuvering money within sectors to maintain the market. It was found that a combination of the energy, utility, materials, and industrial indices were significant in explaining the response. The model was validated, and all errors in model statistics were found to be less than 10%, indicating a *roughly* validated model."
 output:
-  bookdown::pdf_document2
-toc: FALSE
+  bookdown::pdf_document2:
+    fig_caption: yes
+  
+toc: TRUE
+header-includes:
+   - \usepackage{float}
+   - \floatplacement{figure}{H}
+   - \floatplacement{table}{H}
 bibliography: references.bib
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
+library(haven)
 library(tidyverse)
-library(palmerpenguins)
+library(ggplot2)
+library(stringr)
+library(car)
+library(janitor)
+library(visdat)
+library(gridExtra)
+library(reshape2)
+
+total <- readr::read_csv("../../outputs/data/data_clean.csv")
+rel_total <- readr::read_csv("../../outputs/data/data_rel.csv")
 ```
 
 # Introduction
 
 The stock market is arguably the best indicator of the health of an economy and is used as a barometer of what cycle the economy is in [@stockimportance]. With 48 countries having stock exchanges [@allcountrystock], Canada is amongst them. The study of various factors in the economy is essential for federal/central banks, as well as the regulation of monetary policy [@government]. This allows the growth of any economy. To further study the economy, it is broken up into four major sectors; primary, secondary, tertiary, and quaternary. The primary and secondary sectors account for raw materials and finished goods respectively, while the tertiary and quaternary sectors represent the service and public sectors [@sectors].
 
-While all companies are individually important, only a few have a real impact on the market. The S&P/TSX Composite is an equity index that tracks the performance of the largest 230-250 stocks (at any given time) on the Toronto Stock Exchange [@tsxinfo] (largest by market capitalization). It is often used as an indicator of the strength of the Canadian economy [@tsxinfo]. All of the sectors we will be analyzing today are publicly traded indices on the Toronto Stock Exchange, that comprise the largest companies in their respective sectors. Each will be detailed in Section \@ref(data).
+While all companies are individually important, only a few have a real impact on the market. The S&P/TSX Composite is an equity index that tracks the performance of the largest 230-250 stocks (at any given time) on the Toronto Stock Exchange [@tsxinfo] (largest by market capitalization^[market capitalization: total value of all the outstanding shares issued by a company. outstanding shares: shares held by the shareholders]). It is often used as an indicator of the strength of the Canadian economy [@tsxinfo]. All of the sectors we will be analyzing today are publicly traded indices on the Toronto Stock Exchange, that comprise the largest companies in their respective sectors. Each will be detailed in Section \@ref(data).
 
 A note; a market index is simply a method of measuring the performance of various securities at once; i.e. singular security representing numerous others [@index]. This is how we are easily able to measure the health of individual sectors, without observing each subsequent security under them.
 
-In this report; we focus on the primary and secondary sectors of the economy, and view their influence on the S&P/TSX Composite Index; from 1998 until 2022. With data from [@data]; this comprises of the energy, industrial, materials, and utility sectors, provided with their respective indices (the Standard and Poor's/Toronto Stock Exchange Canadian Energy Index, '' '' Canadian Industrial Index, '' '' Canadian Materials Index, '' '' Canadian Utilities Index). Data was provided for past dates (from 1958), however, all the indices were not present since then, making it hard to quantitatively measure the value of sectors. This data, therefore, begins at the birth of these sectors (all in 1998). The hope with this analysis is that it provides key insights into the workings of major sectors of the Canadian economy and their overall impact on it.
+In this report; we focus on the primary and secondary sectors of the economy, and view their influence on the S&P/TSX Composite Index; from 1998 until 2022. With data from @data; this comprises the energy, industrial, materials, and utility sectors, provided with their respective indices (the Standard and Poor's/Toronto Stock Exchange Canadian Energy Index, '' '' Canadian Industrial Index, '' '' Canadian Materials Index, '' '' Canadian Utilities Index). Data was provided for past dates (from 1958), however, all the indices were not present since then, making it hard to quantitatively measure the value of sectors. This data, therefore, begins at the birth of these sectors (all in 1998). This analysis hopes to provide key insights into the workings of major sectors of the Canadian economy and their overall impact on it.
 
-Via applying a linear model to our data (with the S&P/TSX Composite as our response variable), we can attempt to analyze the factors influencing the response. Via first checking, then correcting assumptions to the linear model, we are able to perform statistical tests; such as t-tests [@ttest] and ANCOVA-F tests [@ftest], that allow us to deduce quantitative measures of the data.  Note, we use the model to, "help us explore and understand the data that we have" [@model], meaning they are not absolute, or even \textit{really} present in the data. We are simply aiming to make sense of what is provided, i.e. further understanding the data set, and a model helps us achieve that [@model2].
+By applying a linear model to our data (with the S&P/TSX Composite as our response variable), we can attempt to analyze the factors influencing the response. Via first checking, then correcting assumptions to the linear model, we can perform statistical tests; such as t-tests [@ttest] and ANOVA-F tests [@ftest], that allow us to deduce quantitative measures of the data.  Note, we use the model to, "help us explore and understand the data that we have" [@model], meaning they are not absolute, or even \textit{really} present in the data. We are simply aiming to make sense of what is provided, i.e. further understanding the data set, and a model helps us achieve that [@model2].
 
-
+The goal of this report is to then use this model to predict the future value of the TSX Composite Index, knowing trends in specific economic sectors. For example; if we knew the demand for raw materials is high, the Materials Index is likely to increase in price. The effect of this increase on the TSX Composite will be important to know; to prevent potential downfalls in the market. This report will assist the individuals setting monetary policy and those concerning themselves with macroeconomic impacts on the stock market. Note; predicting the stock market is an incredibly difficult task [@hardpredict], with all 'predictions' being a mix of data and luck. The 'data' is where the prediction becomes difficult since all previous crashes in the stock market have had different reasons for their crashes [@stockcrash]. Our goal is to therefore do this to the best of our ability, using the data we have at hand.
 
 
 # Data
 
+This entire report would not be possible without the R programming language [@citeR], which helps us analyze the data. Tidyverse [@tidy] and dplyr [@dplyr] help us clean the data, while ggplot [@ggplot2], knitr [@knitr] and kableExtra [@kable] help us visualize the data.
+
+## Toronto Stock Exchange (TSX) Statistics
+
+The data has been provided from @data, with prices of each 'index' in CAD, from 1956 to 2022. The advantage of the chosen data is that it is publicly available through the Toronto Stock Exchange, for anyone to freely access. Note, 'index' is in quotations due to not all 25 variables being market indices, but all representing some individual part in the market. This is due to the price of the indices only being recorded after 1998 (technically, the recording began in December of 1997, so the beginning of 1998 was taken as a starting point). Before this, the prices were measured very vaguely; with variable names such as, "TSX, gold and silver, closing quotations", which doesn't relate to a formal measurement, but just a relative one to the prior measurements. Due to the informality of the measurement, there were many missing observations, which would have further hindered our analysis. Since these values are not very helpful, only the formal indices were taken as variables-of-interest, and therefore this report begins to analyze only after 1998. 
+
+In total, the prices of 12 different market indices are recorded on the first of every month, totaling 277 observations of each index; covering every possible sector of the Canadian economy. As described in Section \@ref(introduction), we are only interested in the primary and secondary sectors of the economy for this report and can reduce our sample to 5 market indices (including the response variable; the TSX Composite Index).
+
+Due to this data being acquired from the stock exchange directly, there exists no bias; which significantly increases the strength of any predictions we make with its analysis. Also, due to strict regulations in the stock market via the CSE; the Canadian Securities Exchange [@cse], manipulating/fudging the value of a stock; especially an entire index, is nearly impossible. We can therefore be confident in the data's validity.
+
+## Data Cleaning
+
+The very first step, as with any time-series data, is to convert the date into a readable format; i.e., from a string as 'YYYY-MM-DD' to a decimal (for example; 1998-02-01 is converted to 1998.083). 
+
+The original, 'raw' data acquired from @data, had all 25 variables (12 indices) under a single column, with various other columns for querying the data (unnecessary columns for our analysis); totaling 11,162 observations of 16 variables (columns). After removing the unwanted 'indices' and the dates (starting from 1998), the data was 'transposed', with each column now representing a different index, and each row representing the price of the index on a new month. 
+
+To better understand summaries, another data set was created, with each column containing \textit{relative} prices; which will be termed `relative data' from here on out. These are computed as the value divided by the maximum price of the index (across 1998-2022). This data set is created to better visualize relative differences in the data. Due to various prices set for different indices, there is no way to compare them on an absolute scale (for example, the gold index could be at a price of \$200 today, and the communications index at \$500. This does not imply that communications are more important in our economy). A relative scale would help here, since it would return the price of a sector relative to itself, making it easier for comparisons (for example, an average relative price of 0.5 vs 0.7 states the latter index performs much 'stronger' (higher average returns), with its average price being closer to its maximum). 
+Another advantage of this scale is when visualizing the plots. This can now be done on a singular plot, where we can focus on each index's \textit{pattern}, instead of absolute price. This greatly helps us visualize the influence of these indices on the TSX Composite Index.
+Note, there are various specific situations where the advantages of the relative price diminish (for example, the index reaches a maximum and stays there, with not much variability. This will have a very high average relative price). We will monitor if these situations arise with visualizations (plots and tables in the following sections).
+
+## Summary Statistics
+
+We first visualize the general summary statistics for the data, which includes the mean, standard deviation, its 25 and 75 percentile, and minimum and maximum values. The data used in this case, just to better understand the relative differences; is the relative data. 
+
+```{r tabsum, warning=FALSE, echo=FALSE, message=FALSE, fig.width=5, fig.height=5, table.placement="H"}
+library(vtable)
+sum_data <- rel_total %>% select(sptsx, energy, industrial, materials, utilities)
+
+#changing names for summary table
+names(sum_data)[names(sum_data) == 'sptsx'] = 'SP/TSX Composite Index'
+names(sum_data)[names(sum_data) == 'energy'] = 'SP/TSX Canadian Energy Index'
+names(sum_data)[names(sum_data) == 'industrial'] = 'SP/TSX Canadian Industrial Index'
+names(sum_data)[names(sum_data) == 'materials'] = 'SP/TSX Canadian Materials Index'
+names(sum_data)[names(sum_data) == 'utilities'] = 'SP/TSX Canadian Utilities Index'
+
+sumtable(sum_data, title = "Summary statistics of market indices", 
+         col.align = 'center', out = 'kable')
+```
+
+With Table \@ref(tab:tabsum), we can observe the utility index is closest in mean price to the composite index, which we can roughly interpret as them having similar performance. With the Industrial index having the lowest mean relative price, we can roughly conclude the performance of this index is the worst as compared to the rest^[Note, the term 'roughly' is used in the previous sentences, since we must remember the mean relative price doesn't reflect anything directly on the performance on the underlying index but provides us simply with an \textit{indication} of how the index is performing]. 
+
+Apart from these initial conclusions, we can also witness the 'spread' of these indices, with their standard deviation and quantile values. We observe the Industrial index with the lowest 75th percentile, while all other indices have similar values. This tells us the Industrial index might have had the largest growth (in percentage terms) of all the sectors in the recent years. We can infer this since a low 75th percentile value indicates at the 75% mark it is the farthest from its maximum, which; provided the index is increasing over time, implies there is more growth to be observed in this sector.
+
+While each sector index's minimum values all vary, we can observe the composite index with a minimum of nearly 30\% of its maximum, much higher than other index minimums. This shows us the advantage of an index such as the TSX Composite Index, which is meant to weigh all sectors of the economy such that any one sector cannot single-handedly move the market. This also shows us the advantage of investing in an index such as the composite index over an individual index representing a sector; since you would not have unrealized losses^[The decrease in the value of an investment that is still ongoing] as large in the composite index. We can therefore think of the composite index as a hedge against potential drops in individual economic sectors.
+
+## Time Series Representation
+
+We must note, that all variables are functions of time, and vary throughout the data. To better understand the data at hand, we can visualize it. Once again, we use the relative data; since we only care about the patterns in the indices, and not the values themselves. 
+
+```{r figtime, echo=F, message=F, fig.height=5, fig.width=10, fig.align='center', fig.cap='Relative prices of indices-of-interest over 1998-2022. "sptsx" = composite index'}
+##plotting relative values of all indices
+col_plot <- c('sptsx', 'energy', 'industrial', 'materials', 'utilities')
+dlong <- melt(rel_total[,c("date", col_plot)], id.vars="date")
+names(dlong)[names(dlong) == 'sptsx'] = 'Composite'
+
+#"value" and "variable" are default output column names of melt()
+ggplot(dlong, aes(date,value, col=variable)) +
+  geom_point()+geom_line()+
+  labs(y='Relative value', x='Date', color = 'Index')
+```
+
+Here, we can observe very many qualities of the individual sector indices, and how they compare to the composite index. We can firstly verify our initial conclusion with the summary statistics; that the utility index matches in performance to the composite index. We observe that these indices closely follow each other, with rises and falls in the composite index matching those in the utilities. We also observe why the Industrial index had the lowest 75th percentile since its maximum is much higher than its average values as compared to the other indices; pointing to large growth in the sector in a short timespan (percentage growth in recent years (last 10-12) would be the greatest for the industrial sector, due to explosive growth seen roughly post-2017).
+
+We can also observe various other qualities, such as the drastic increase of indices such as Materials and Energy, followed by the then-drastic decrease of the Energy index. There are various events we can speak of during these twenty-four years; that led to the rise and fall of different indices, and even the composite index itself; such as the 'dotcom' bubble burst in late 2000 [@dotcom], the housing market/financial crisis of 2008 [@2008] as well as the recent crash related to the COVID-19 pandemic in 2020 [@2020]. While further analysis into the indices themselves and the factors behind their rise and fall is out of the scope of this report, it is always good to know more about these indices that shape our economy.
+
 
 # Model
 
+## Multiple Linear Regression 
+
+To understand the relationship between a set of variables (called, 'predictors') and a singular variable (the response), a multiple regression model is used. With the given data, the intuitive prediction would be to use a \textit{linear} model^[due to the data representing price fluctuations over a linear time interval. Also, the assets being measured (the indices) represent large parts of the economy, and would not fluctuate heavily (i.e. linear approximation would work)]. 
+
+The results of a multiple-linear model convey the relationship (specifically, it returns the coefficient $\beta$) between the response and the predictor variables; which we can then use for further analysis. Primarily; holding the other predictors constant, the model allows to predict (hence the name, 'predictor' variable) a future value for the response, knowing the variation in a singular variable. Also, knowing some variation in multiple variables allows us the same prediction, due to the nature of the \textit{multiple} linear model. What this translates to, for our data; is to, theoretically, be able to predict the price of the S&P/TSX Composite Index, knowing a potential rise or fall in a certain sector(s) of the economy. 
+
+With there being 4 'predictor' indices (energy, industrials, materials and utilities), the general form of the multiple linear regression model would be:
+
+\begin{align} (\#eq:model)
+y = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \beta_3 X_3 + \beta_4 X_4 + \epsilon
+\end{align}
+
+where $\boldsymbol{\beta}$ represents the coefficients and $\epsilon$ represents the error (deviation) from the model. $\boldsymbol{\beta}$ contains $\beta_0$; representing the intercept and $\beta_{1 \dots 4}$; representing the slopes of each predictor ($X_{1\dots 4}$), holding all others constant. Note, that this equation assumes all of the predictor variables are independent. If we wish to add any possible interaction between the terms, we can add a coefficient of a simple 2nd-order term, for example; $\beta_5 X_n X_m$. Note, this doesn't disturb the \textit{linearity} of the model, since the model must be linear in its coefficients; $\boldsymbol{\beta}$.
+
+An important step that must be considered before the application of the model, is to check that the data satisfies the assumptions of a linear model. These are explicit assumptions, further detailed in Section \@ref(model-assumptions); that we must verify before applying the model; since not doing so may render the model insignificant (if the data doesn't satisfy the assumptions, the results of the model are meaningless). If assumptions are not satisfied, corrections (transformations) can be made to the data to rectify this. In essence, if these assumptions are satisfied, we can be confident that our estimated coefficients (what the model returns) are unbiased and that statistical tests such as t-tests and ANOVA F-tests are valid (otherwise the tests would be meaningless).
+
+Creating a model is one thing while having it accurately describe the data is another. The final step would be to compute statistical tests on the model to verify this accuracy. This is detailed further in Section \@ref(model-tests), and explains what properties of the model to verify, to be satisfied with the results of the model (the coefficients).
+
+## Validation
+
+Due to the goal to predict a future price, we would need a method to validate the model. For this, before any modeling is done whatsoever; we create a 75-25 split in the data, such that we can apply and refine our model with the larger set of data (the \textbf{training} data set), and test if its predictions work on the smaller set (the \textbf{test} data set). This is a very powerful tool that allows us to create confidence levels such that we can apply our model to (theoretically) any economy in the world!
+
+To be certain our data sets aren't too different, we compute error percentages in both the mean and standard deviation of each variable in both data sets. Note, we wish for these values to be under 10%, but also not so low as to be almost identical to the training data.
+
+```{r, echo=F}
+##VALIDATING MODEL
+# create a 50/50 split in the data
+set.seed(4)
+train <- total[sample(1:nrow(total), 138, replace=F), ]
+test <- total[which(!(total$date %in% train$date)),]
+
+mtr <- apply(train[,c(1,3,4,5,6)], 2, mean)
+sdtr <- apply(train[,c(1,3,4,5,6)], 2, sd)
+
+mtest <- apply(test[,c(1,3,4,5,6)], 2, mean)
+sdtest <- apply(test[,c(1,3,4,5,6)], 2, sd)
+
+#percentage difference
+m_df <- round(abs(mtr-mtest)/mtr*100,2) #all approx less than 10%
+s_df <- round(abs(sdtr-sdtest)/sdtr*100,2)
+#creating data frames
+train <- data.frame(train)
+test <- data.frame(test)
+
+t_df <- data.frame(cbind(m_df,s_df))
+names(t_df)[names(t_df) == 'm_df'] = 'Mean Error %'
+names(t_df)[names(t_df) == 's_df'] = 'Std. Dev Error %'
+kable(t_df, format='pipe', full_width = F, caption='Error % of training data with respect to the test data')
+```
+
+Here we observe an average error of $\sim 2-3$ %, conveying our training data accurately represents our data. 
+
+Note, the test data will only become important once an optimal model has been found, such that we can \textit{test} our model.
+
+
+## Model Assumptions
+
+For a linear model to be applicable to the data, the data must roughly follow some assumptions. They can be mathematically written as:
+\begin{align} \label{assumption}
+\boldsymbol{Y} | \boldsymbol{X} \sim N_n(\boldsymbol{X \beta}, \sigma^2 \boldsymbol{I})
+\end{align}
+Where $\boldsymbol{Y}$ and $\boldsymbol{X}$ are the response and predictor variables respectively, $n$ represents normality in all predictors, with a mean of $\boldsymbol{X \beta}$ and variance of $\sigma^2 \boldsymbol{I}$. This can be better understood with 4 explicit assumptions. They are:
+\begin{enumerate}
+\item Population conditional mean responses (conditioned on all other predictors being constant) are given by $\boldsymbol{X \beta}$. Equivalently, the population errors have 0 mean.
+\item Population responses (therefore errors) are uncorrelated with each other.
+\item Population responses (therefore errors) have constant variance around the conditional mean (assumption 1).
+\item Population responses (therefore errors) are normally distributed with a mean from assumption 1.
+\end{enumerate}
+
+Since the residuals represent errors (which return similar conclusions to the response), we can formally analyze potential model violations with the residuals. Recall, that the residuals are given by the difference between the prediction (model) and the observation. By monitoring patterns in these residuals, we can observe if our model is incorrect. For this, any pattern in the residuals can be observed; from \textit{clumped} residuals to ones showing fanning, to complete polynomial-like patterns in the residuals. All these imply an incorrect model has been fit. To be satisfied with our model, the residuals must be scattered randomly around the 0-line. Note, if a pattern is observed, we can further assess it using additional conditions (checking for additional assumptions) to be able to identify \textit{what} in our model is incorrect. 
+
+We observe 3 major residual plots; versus predictors, versus predicted (fitted) values, and the normal QQ (quantile-quantile) plot. The normal QQ plot computes quantiles from the residuals of the model and compares them to standard normal quantiles. This returns the error distribution in our model (and therefore the distribution of the response). It must be noted that; the tails of these plots (high quantile, low probability observation) usually deviate from these lines, since highly unlikely observations could be scattered. 
+
+We can also view the distribution of errors (residuals), which provides us insight into if the model can be applied to the data. 
+
+With a combination of these 4 plots, we can formally assess our data for linear model violations. We, therefore, wish to see randomly scattered residuals for the first two plots, a normal QQ plot that resembles a 1:1 distribution (as $y=x$) and a normal error distribution with mean and standard deviation 0 and 1 respectively. 
+
+
+Finally, if we are unsatisfied with the results from the assumptions, assuming the predictor and response are normally distributed; we can apply the Box-Cox transformation [@boxcox] to the variables. It is a transformation used for 'variance-stabilization', i.e., to correct normality and/or linearity. It returns optimal powers (hence it is also named a power transformation) to the variables for the linearity assumptions to be best satisfied so that a model used on this transformed data holds meaning.
+
+
+## Multiple Models
+
+Various models were tested, with differing predictors and their combinations. There were many reasons for trying a new model, from high collinearity between variables to non-significant tests. With various models on our hand, we can compare them using statistical tests to select a singular, \textit{best} model. Recall, that this model is only a way to understand the data, and may not truly be present [@model].
+
+8 different models were tested, varying the predictors in each. Table \@ref(tab:modeltab) describes all models. The following variables represent the TSX composite, materials, energy, industrial, and utility index respectively; $Y, M, E, I, U$. 
+
+```{r modeltab, warning=FALSE, echo=FALSE, message=FALSE, table.placement="H"}
+
+num <- c(1,2,3,4,5,6,7,8)
+models <- c('$Y_1 = \\beta_1M+ \\beta_2I+ \\beta_3E+ \\beta_4U + \\beta_0$',
+            '$Y_2= \\beta_1M+ \\beta_2E+\\beta_0$',
+            '$Y_3 = \\beta_1M I + \\beta_2 E U + \\beta_0$', 
+            '$Y_4 = \\beta_1M+ \\beta_2I+ \\beta_3E+ \\beta_4U+ \\beta_5M I+ \\beta_6E U +\\beta_0$', 
+            '$Y_5=\\beta_1M+ \\beta_2I+ \\beta_3U+ \\beta_4M I+ \\beta_5E U +\\beta_0$',
+            '$Y_6=\\beta_1M+\\beta_2 I+\\beta_3 U+\\beta_4 M E+\\beta_5 E U+\\beta_0$',
+            '$Y_7 = \\beta_1M+\\beta_2 I+\\beta_3 U+\\beta_4 M^2+\\beta_5 M E+\\beta_6 E U+\\beta_0$',
+            '$Y_8=\\beta_1M+\\beta_2 I+\\beta_3 U+\\beta_4 M E+\\beta_5 E U+\\beta_6 M I+\\beta_0$')
+
+tab <- cbind(num,models)
+tab <- data.frame(tab)
+colnames(tab)[1] <- 'Model #'
+colnames(tab)[2] <- 'Model'
+kable(tab, format='pipe', full_width = F, caption='Various models used on the training data')
+```
+
+There are valid reasons for testing each model, which will be explained here. While Model 1 represents the general model, Model 2 removes the variables with high collinearity^[indicating the variables may be related to other variables in the data] (via measuring the variable's variance inflation factor (VIF)). Model 3 then adds interaction terms only. The variables to interact with were chosen carefully. The Global Industry Classification Standard [@gics] explicitly defines each sector. The materials and industrial sectors both deal in manufacturing (the materials sector deals in more raw goods), and the energy and utility sectors both deal closely with energy and its transportation (the energy sector deals with a more raw form, i.e., the direct production). 
+Model 4 simply adds all other predictors, while Model 5 removes the energy sector, due to an insignificant t-test. Model 6 then aims to improve on the interaction terms via replacing the material interaction with the industrial sector with that with the energy sector. This is due to them both being involved in the production of raw materials, making them primary sectors of the economy. The industrial and utilities sectors were also made to interact and test the coefficient; however, this lead to an insignificant test. This is assumed to be due to the dependencies of these sectors on the primary sectors. 
+Model 7 aims to \textit{guess} a correction for possible issues seen in the residual plot with the materials sector, via adding a quadratic term (aiming to correct variance). Finally, Model 8 is a union of Model 5 and 6, to test if all may be significant together. 
+
+Testing these various models allows us to deduce a rough idea of a \textit{best} model. Note, since this is only from our selection of models, a \textit{better} model can exist. This is why, near the end, we must validate our data, for understanding how good this model would be with another data set. This will be done using the other half of the data set (the test data) to be able to directly test our model.
+
+
+## Model Tests 
+
+Provided the assumptions of the model hold, we can compute t-tests on each predictor (holding the others constant); under the null hypothesis that the predictor does not influence the response. A significant test (low p-value) therefore conveys the predictor is indeed related to the response and should not be ignored when aiming to predict the response. An ANOVA F-test can also be performed on each model, which returns the significance of the variation explained by the predictors in the model. The null hypothesis is that the best fit is given by the intercept-only model (no predictors). A significant result, therefore, conveys the predictors in the model explain the data better than the intercept-only model.
+Both of these tests are returned by the `summary()` function in R. 
+
+These tests should return a few models that have all significant statistics. 
+To then determine the strongest model out of these, we must explore additional tests on the models. We use 3 major tests for these models; 
+
+1. Adjusted R-squared
+2. (Corrected) Akaike Information Criterion (AICc) [@aicc]
+3. Bayesian Information Criterion (BIC) [@bic]
+
+With a combination of these 3 tests, the goal is to be able to determine an optimal model; one that satisfies all of these tests. 
+
+The adjusted R-squared (adjusted coefficient of determination) is a measure of the amount of the response's variance explained by the predictors in the model. The higher this value, the more variation is being explained in the response. The 'adjusted' conveys that this value considers the number of predictors (since more predictors automatically imply more variation is explained, this should be corrected). We, therefore, accept the model with the greatest adjusted R-squared.
+
+The AICc uses the log-likelihood method of measuring how well the model fits the data, with a 'penalty' (worsening its value) based on the number of predictors. While analyzing this statistic, the smaller the value, the stronger the model. The 'corrected' term comes from this statistic being derived from the AIC, with a stricter penalty to correct for over-fitting of the statistic.
+
+The BIC is similar to the AICc, with an even stricter penalty for the number of predictors. Similarly, smaller values of BIC indicate stronger models.
+
+Finally, to test if our model explains this data, and data similar to the training set (i.e., the test data), we can now validate our model using the optimal one found using the tests. The goal is to observe similar coefficients and significances in the variables when applying the model to both data sets. If the error between the coefficients is minimal, we can successfully validate our model.
 
 # Results
 
+## Checking Assumptions
+
+We begin by checking the assumptions of a linear model, using the simplest model (Model 1; from Table \@ref(tab:modeltab)). The following plots are the first two residual plots; including the residuals versus the fitted and versus the predictors. 
+
+```{r fig1, echo=F, message=F, fig.height=3.5, fig.width=4, fig.align='center', fig.cap='Standardized residual plots of fitted values'}
+
+mod_tr = lm(sptsx~energy+industrial+materials+utilities,data=train)
+
+plot(rstandard(mod_tr)~fitted(mod_tr), xlab="fitted", ylab="Std. Residuals")
+abline(a=0,b=0)
+```
+
+```{r fig2, echo=F, message=F, fig.height=10, fig.width=10, fig.align='center', fig.cap='Standardized residual plots of all predictors'}
+
+par(mfrow=c(2,2))
+for(i in c(3:6)){
+  plot(rstandard(mod_tr)~train[,i], xlab=names(train)[i], ylab="Std. Residuals")
+  abline(a=0,b=0)
+  #plot(rstandard(mod_trans_tr)~tr_transform[,i], xlab=names(tr_transform)[i], ylab="Residuals_tr")
+  #abline(a=0,b=0)
+}
+```
+In Figure \@ref(fig:fig1), we observe most of the residuals are randomly scattered. There do seem to be influential observations^[outliers, leverage points; points that affect our model and estimated coefficients]. In Figure \@ref(fig:fig2), we can observe the materials plot showing a \textit{slight} amount of fanning, where the residuals gradually increase/decrease in a triangular pattern. This may imply an issue with the variance/normality, which is why Model 7 was created, via guessing a quadratic form (to potentially fix the normality). As we will later observe in Section \@ref(results-of-models), this produced insignificant results; implying that it was an incorrect guess.  
+
+We can now look at the normal QQ plot, shown in Figure \@ref(fig:figqq). 
+With this model, we expect a minimal deviation from the line shown in the figure. We can observe some deviation at the tails, however, there is no significant pattern in the plot, to which we can conclude the model is roughly accurate to be applied to the data; i.e., it satisfies the model assumptions.
+
+```{r figqq,echo=F,fig.align='center',fig.width=6,fig.height=4, fig.cap='Plot showing normality of errors (and therefore response)'}
+qqnorm(rstandard(mod_tr))
+qqline(rstandard(mod_tr))
+```
+Finally, we can observe the distribution of errors (residuals) to be certain it follows a normal distribution (with mean 0).
+
+```{r figresid,echo=F,fig.align='center',fig.width=6,fig.height=4, fig.cap='Histogram of errors showing its distribution'}
+ggplot(data=train, aes(x=rstandard(mod_tr)))+geom_histogram( bins = 15)+
+  labs(x='Standardized residuals')
+
+```
+Here, we can observe influential observations (outliers; extreme residuals); that with the right set of reasoning, could be removed from the data. Mainly, we observe a mean centered at 0.
+
+The mean and standard deviation of the standardized residuals were both computed, which returned a value of $\sim 0$ and 1.01 ($\sim 1$) respectively. 
+
+Using a combination of these residual plots, we have seen that the data indeed follows the assumptions of a linear model.
+
+## Results of Models
+
+We now attempt to use the tests described in Section \@ref(multiple-models) to attempt to find the \textit{best} model. 
+
+It was found that all but Model 5 and 6 returned at least one insignificant coefficient (insignificant t-test; representing the model does not depend on said coefficient/predictor). ANOVA F-tests were performed on each model, where all returned significant statistics; implying all models significantly explained variation in the data.
+
+The 3 major tests were then performed on these models (adjusted r-squared, AICc, aend BIC); the results of which we can see in Table \@ref(tab:tabmodelres). 
+
+```{r tabmodelres, warning=FALSE, echo=FALSE, message=FALSE, table.placement="H" }
+library(MuMIn)
+mod5 <- lm(sptsx~materials + industrial + utilities + materials:industrial+
+             energy:utilities, data=train) #all with interaction w/o energy
+s1 <- summary(mod5) 
+
+mod6 <- lm(sptsx~ materials + industrial + utilities + energy:materials+
+             energy:utilities, data=train) #all with interaction w/o energy w/o mat:ind since insig
+s2 <- summary(mod6) #highest adjusted R squared
+
+preds <- c(length(coef(mod5))-1, length(coef(mod6))-1)
+rsq <-c(s1$adj.r.squared, s2$adj.r.squared)
+aic_c <- c(AICc(mod5), AICc(mod6))
+bic <- c(BIC(mod5), BIC(mod6))
+
+mod_names <- c('Model 5', 'Model 6')
+mod_compare <- cbind(mod_names, preds, round(rsq,4), round(aic_c), round(bic))
+mod_compare <- data.frame(mod_compare)
+colnames(mod_compare)[1] <- 'Model #'
+colnames(mod_compare)[2] <- '# Predictors'
+colnames(mod_compare)[3] <- 'Adjusted R-squared'
+colnames(mod_compare)[4] <- 'AICc'
+colnames(mod_compare)[5] <- 'BIC'
+
+kable(mod_compare, format='pipe', full_width = F, caption='Results of model tests to determine superior model')
+```
+
+From the results of the tests, we can observe Model 6 is the strongest model, with the highest adjusted R-squared and lowest AICc and BIC. We can therefore be confident with this model and aim to use it to validate our prediction. 
+
+We can observe the results of the model, given by the following equation:
+\begin{equation}
+Y_6 (\$)=13 M+39 I -18U-0.03ME+0.10EU + 4200
+\label{eq:modeleq}
+\end{equation}
+Note, all coefficients have been rounded to two significant figures, to preserve continuity.
+
+Here, we can observe the interaction terms ($ME$ and $EU$) as not affecting the value as much as the other predictors, yet are highly significant (both p-values are under 0.01). We can therefore not ignore them.
+
+With this model, we can now observe individual plots with the predictor and the response variable, giving us an indication of the difference between the individual linear model coefficients and the multiple linear model (i.e., testing how much the other predictors affect each coefficient). Note, in this plot; we also view the relationship with the date. Even though this is not part of the model, the relationship of price with-respect-to date is an important indication of the future of the stock market (while with other variables, the future represents varying values in each sector, the future here literally represents the future of an observation). 
+
+```{r figplots, echo=F,fig.align='center', fig.width=10,fig.height=8, fig.cap='Individual linear model applied to each variable in the data, along with the fitted values (top left); from Model 6. Line of best-fit from individual models overlaid on each predictor, with standard errors. The equation of each line is provided atop the plot'}
+
+mod_date <- lm(sptsx~date, data = train)
+mod_en <- lm(sptsx~energy, data = train)
+mod_ind <- lm(sptsx~industrial, data = train)
+mod_mat <- lm(sptsx~materials, data = train)
+mod_util <- lm(sptsx~utilities, data = train)
+
+s1 <- summary(mod_date)
+s2 <- summary(mod_en)
+s3 <- summary(mod_ind)
+s4 <- summary(mod_mat)
+s5 <- summary(mod_util)
+
+s <- list(s1,s2,s3,s4,s5)
+
+
+#plotting individual x against response
+p <- list()
+p[[1]] <- ggplot(data = train, aes(x = fitted(mod6), y = sptsx))+geom_point()+
+  geom_smooth(method = 'lm', se=TRUE, formula = 'y~x')+
+  labs(x='Fitted', y='S&P/TSX Price', title= 'y = x')
+for(i in c(2:6)){
+  if(i == 2){ #don't want to print intercept for date
+    p[[i]] = ggplot(data = train, aes_string(x = train[,i], y = train$sptsx))+geom_point()+
+      geom_smooth(method = 'lm', se=TRUE, formula = 'y~x')+
+      labs(x=names(train)[i], y='S&P/TSX Price', title = paste('y = ', round(s[[i-1]]$coefficients[2],2), 'x', sep=''))
+  }
+  else{
+    p[[i]] = ggplot(data = train, aes_string(x = train[,i], y = train$sptsx))+geom_point()+
+      geom_smooth(method = 'lm', se=TRUE, formula = 'y~x')+
+      labs(x=names(train)[i], y='S&P/TSX Price', title = paste('y = ', round(s[[i-1]]$coefficients[2],2), 'x + ',
+                                                               round(s[[i-1]]$coefficients[1]), sep=''))
+  }
+}
+do.call(grid.arrange, p) #plotting
+```
+
+Comparing the individual coefficients from each model (to the multiple linear model), we can view some interesting relationships, i.e., how the presence of other predictors affects the individual relationships. They will be spoken about in detail in Section \@ref(discussion).
+
+The issue with observing the results of the multiple linear model is that it is difficult to view a plot in 5 dimensions (1 response and 4 unique variables). We can however partially represent the model, via plotting individual predictors holding others constant. 
+Using the car package [@car], we can do this. These plots, termed 'added variable plots', show us the results of our model in a visualizable way. This is shown in Figure \@ref(fig:figavplots).
+
+```{r figavplots, echo=F,fig.align='center', fig.width=12,fig.height=9, fig.cap='Plots showcasing individual predictor relationships conditioned on all others (being constant); using Model 6. Labelled points represent influential observations'}
+avPlots(mod6)
+```
+
+Here, we can now observe the results of the multiple linear model (as opposed to the individual relationships), where we can observe the effect of conditioning on the predictors. For example, we can observe a negative relationship with the utility index with the multiple linear model, but a positive relationship when plotted individually. This will be spoken about further in Section \@ref(discussion).
+
+## Model Validation
+
+Finally, we can apply Model 6 to our test data, to observe the coefficients and their significance. Interestingly, it was found that the interaction between materials and energy was not significant in the test data (it was quite insignificant; with a p-value of 0.33). The coefficients returned are shown in the following equation
+
+\begin{equation}
+Y_{\text{test}}=7.0M+43I-19U-0.01ME+0.09EU+5081
+\end{equation}
+
+With this, we can compare the coefficients to those returned from the training data set; and compute the error. Note, due to the insignificance of materials:energy, we expect the error in its coefficient to be high. Also, note, we \underline{cannot} remove the interaction term from the test model due to its insignificance. Recall, we have already concluded Model 6 was the strongest from the training data; and we therefore must apply only this model to the test data. Therefore, the model should not be altered due to observations from the test data.
+
+```{r tabmodeltest, warning=FALSE, echo=FALSE, message=FALSE, table.placement="H"}
+var_names <- c('Materials', 'Industrial', 'Utilities', 'Materials:Energy', 'Energy:Utilities','Intercept')
+test_vals <- c(6.96,43.46,-19.48,-0.013,0.092,5081.18)
+train_vals <- c(13.13,39.61, -18.13, -0.03, 0.105,4229.64)
+tab_vals <- abs((train_vals-test_vals)/test_vals)*100
+
+tab_test <- cbind(var_names, round(tab_vals))
+tab_test <- data.frame(tab_test)
+colnames(tab_test)[1] <- 'Predictor'
+colnames(tab_test)[2] <- 'Error in Coefficient (%)'
+
+
+
+kable(tab_test, format='pipe', full_width=F,position='float_left', caption='Error % of training and test coefficients from Model 6')
+
+```
+
+```{r tabmodelvalidatestat, warning=FALSE, echo=FALSE, message=FALSE, table.placement="H"}
+train_stats <-  c(0.9765,2143,2162)
+test_stats <-  c(0.9738, 2377, 2397)
+tab_vals2 <- abs((train_stats-test_stats)/test_stats)*100
+tab_names <- c('Adjusted R-squared,', 'AICc', 'BIC')
+tab2 <- cbind(tab_names,round(tab_vals2,2))
+tab2 <- data.frame(tab2)
+colnames(tab2)[1] <- 'Statistic'
+colnames(tab2)[2] <- 'Error in Statistic (%)'
+kable(tab2, format='pipe', full_width=F,position='right', caption='Error % of training and test statistics from Model 6')
+```
+
+In Table \@ref(tab:tabmodeltest), we observe a large error in the materials index. This likely has something to do with the insignificant interaction term between materials and energy. A large error can also be (therefore) observed in the interaction term; between materials and energy. The rest of the errors are under 20%, roughly representing validated coefficients.
+
+Then, in Table \@ref(tab:tabmodelvalidatestat), we also observe an under 10% error in all statistics related to computing the 'best' model, namely; the adjusted R-squared, the AICc and BIC. This gives us hope in validating our model.
+
 # Discussion
 
+## Summary
+
+Via utilizing the prices of primary and secondary economic sector indices on the Toronto Stock Exchange, we were able to analyze their effect on the S&P/TSX Composite Index; which is widely regarded as an indicator of the strength of the Canadian economy [@stockimportance]. With this analysis, the goal is to be able to predict the value of the composite index, knowing a potential rise or fall in certain sectors (sector indices) of the economy. 
+
+Satisfied with the data following the assumptions of a linear model, we were able to apply and test various models, to which we concluded Model 6 (Equation 3) best described our data. Now, knowing a combination of values in the materials, industrials, energy, and utility index; one can predict values for the TSX Composite Index. The plots for each predictor (Figure \@ref(fig:figavplots)) show us these predictions when a single predictor is varied. 
+
+Finally, to test the results of the model; it was validated via applying the same model to the test data. Here, it was (interestingly) found that the materials and energy interaction term was insignificant, with a p-value of 0.33. This indicates our model derived from the training data does not fully encompass the 'population' (the entire sample). 
+Since this has been applied to the test data, we can only comment on this relationship and not alter any part of the model. This is due to the nature of the test data. If we re-do the analysis of our model due to observations from our test data, we will be directly adding bias to our model, as we will no longer be able to state that our model is valid in an external data set since we've used it to build/change our model. We can therefore only discuss the potential impacts of the insignificant coefficient on our data. 
+Due to small errors observed in all but the materials index (Table \@ref(tab:tabmodeltest)), as well as small errors in the model statistics (Table \@ref(tab:tabmodelvalidatestat)); we can conclude that (apart from the insignificance of the materials index), the model has been *roughly* validated.
+
+## Individual Models
+
+To test the effect of individual predictors on the response, single-predictor models were created with each variable in the data; shown in Figure \@ref(fig:figplots). Here, we can comment on the individual relationships between the predictors and the model. Note, all of these individual models had adjusted R-squared values less than 0.5 (compared to 0.97 for Model 6), indicating they do not explain all the variation in the data. These models are therefore not accurate with the given data; however, their relationships can be viewed and commented on. Due to all coefficients in the models being highly significant (the intercept in the 'date' model was insignificant (assumed to be due to strong dependencies on the other predictors), and hence not included in the individual model plots (Figure \@ref(fig:figplots))), they are displayed atop the plots. Here, we can view some \textit{interesting} relationships. 
+
+We can first view the relationship between the response and Model 6's fitted values. It can be observed that the data strongly follows the prediction. We compute a chi-squared test^[a statistical hypothesis test, with the null hypothesis, that the predictors have the same distribution. A significant test conveys the model does not describe the data accurately], from the Janitor package [@janitor], which returns a p-value of 0.24. Since this is greater than the 'significance' cutoff (0.05), i.e., it is an insignificant test, we can deem the model correctly predicts the data. We can now look at the individual models.
+
+Firstly, the relationship with date; although not impacting our model, gives us an indication of the 'time-series' performance of the composite index. We observe a coefficient of 470.65, indicating; that on average, the S&P/TSX Composite Index increases by $470.65 every month. This data is taken over 24 years, representing 36% of the total period since the index's inception (incepted in 1956 (data begins); the total period is 66 years); a large percentage of the existence of the composite index. This can therefore give us a rough estimation of the market's performance in the future. This predictor also has the largest coefficient when modeled with the response; (roughly) indicating that time influences the market the most!
+
+Due to the rapid increase and decrease of the energy index during the observation period, we can observe large non-injectivity^[injective function: every x value has a unique y value. Note, due to this data being real-world observations, perfect injectivity is nearly impossible (unless it's time-series data)] (large differences between the same x-value), where the standard errors of the prediction are the largest within all other predictors.
+
+The Utility Index \textit{looks} as it fits the response the best, as was observed with their similar time-series distributions in Figure \@ref(fig:figtime). We can observe this due to most of the data residing \textit{close} to the line-of-best-fit. Also, the standard errors of this model are the lowest compared to other predictors.
+
+## Multiple Linear Model
+
+Being confident with Model 6, we can use its results to interpret the effect of these predictors; \underline{in the presence} of all other predictors. This lets us analyze their relationship with the response in unison, instead of individually (performed with the individual linear models). We can view the results of this model in Figure \@ref(fig:figavplots). 
+
+Here, we observe all relationships but utilities and the interaction between materials and the energy index produce positive slopes (coefficients). We can observe in all plots that the points are roughly randomly scattered around the lines of best fit, indicating these models used are accurate. Again, we can also see this from a near-perfect 1:1 relationship between the fitted values and the observations; as seen in the (top left) plot in Figure \@ref(fig:figplots). 
+
+An interesting comparison that can be made between the multiple linear model and the single-variable linear model is the utility index. We can observe (in Figure \@ref(fig:figplots)) that the utility index has a positive relationship with the composite index. In fact, when observing the relative patterns in the indices (Figure \@ref(fig:figtime)); the utility index was nearly identical to the composite index; which was also supported via the numerical summaries (Table \@ref(tab:tabsum)) being similar. However, with the multiple-variable model used (Figure \@ref(fig:figavplots)), we observe a negative relationship with utilities. This indicates the presence of the other predictors affects the relationship between the composite index and the utility index the most (since all other coefficients remained positive). 
+This can also indicate that another predictor which is correlated to the utility index could be affecting its relationship with the composite index. The interaction of the index (with the Energy index) is likely what is causing this issue. This is because when isolating for the utility index, we also must use the energy index (since they interact together); which then also includes the material index. A dependence somewhere in this chain of dependencies is likely what is causing the difference in the coefficients. Note, a different coefficient is not a *bad* thing, however, can be commented on.
+
+While all coefficients were statistically significant, they do not equally contribute to the price of the composite index (interaction terms contribute the least). The largest contribution (via the absolute value of the coefficients) was observed from the industrial index, representing a \$39 increase in the price of the composite index with every \$1 increase in the industrial index, holding all other indices constant. The smallest, on the other hand, is observed in the interaction between the materials and energy indices. 
+
+With a combination of this model and the crucial information we obtained from the model validation (the insignificance of the interaction between the materials and energy indices); we can now use this model to *roughly* predict the price of the composite index; knowing variation in the predictor variables.
 
 ## Weaknesses
 
+Due to the data being directly sourced from the Toronto Stock Exchange, there are not many *changes* we can make to the data in the future; since it is dictated via real-time events, that can be *somewhat* random (most events can be traced back to a *starting-point*, however since most individuals aren't keeping track of every possible starting-point, the events that occur in the economy that shift economical sectors can be assumed to be random). 
 
+Therefore, only possible improvements can be made to the model itself. However, as we checked the 4 basic assumptions; none were found to violate linearity. The *slight* pattern in the standard residuals of the materials index (Figure \@ref(fig:fig2)) could potentially explain the issues we observe with the validation of the model. A power transformation (Box-Cox transformation) could be attempted; however, it should be performed on all predictors and the response, to not include bias in the transformation.
+
+## Next Steps
+
+The future of reports such as this one is to analyze the economic sectors that affect different markets in the world; and compare them to each other. For example, if the USA has a greater dependence on the Energy Index on its stock exchange as compared to Canada, is it because they export more energy, have more factories, have more available resources for energies such as oil, etc? These are economic factors that influence the global economy, and further study into global markets may yield valuable information.
+
+This particular report is aimed to assist those interested in monitoring macroeconomic factors that influence the Canadian economy; particularly those individuals with the power (such as policymakers) to prevent turmoil in the economy to do so aptly.
 
 \newpage
 
 \appendix
 
 # Appendix {-}
+
+## Datasheet: Describing the Data 
+
+Extract of the questions from @gebru2021datasheets
+
+
+**Motivation**
+
+1. *For what purpose was the dataset created? Was there a specific task in mind? Was there a specific gap that needed to be filled? Please provide a description.*
+    - The dataset was created to record changes in the prices of various indices on the Toronto Stock Exchange (TSX). We found a publicly available dataset from @data that contained this information. This dataset specifically satisfies the requirements for the International Monetary Fund's Special Data Dissemination Standards (SDDS) Plus initiative, and used for various purposes; specifically economic, financial and wealth accounts. The data contains this variety of information in a structured format. 
+    
+2. *Who created the dataset (for example, which team, research group) and on behalf of which entity (for example, company, institution, organization)?*
+    - Statistics Canada obtained the data from the TSX; publicly available data, however, does not apply directly to Statistics Canada (available and used by numerous internal and external users)
+3. *Who funded the creation of the dataset? If there is an associated grant, please provide the name of the grantor and the grant name and number.*
+    - No funding was required, since the data set is simply a compilation of publicly available data.
+4. *Any other comments?*
+    - Since all this data is based from a third party source (the TSX), there is not much that the data itself can be incorrect about. While we can correctly apply and use it to analyze the Canadian economy, models such as these may not work in other economies. This should be noted.
+
+**Composition**
+
+1. *What do the instances that comprise the dataset represent (for example, documents, photos, people, countries)? Are there multiple types of instances (for example, movies, users, and ratings; people and interactions between them; nodes and edges)? Please provide a description.*
+	- All the variables in this dataset represent price; of various indices listed on the TSX. These prices represent the strength/condition of the sector the respective index represents. Relative to its past and future prices, we are able to judge the strength of each index.
+2. *How many instances are there in total (of each type, if appropriate)?*
+	- There is simply one instance; representing the strength of a sector (via the price of the index).
+3. *Does the dataset contain all possible instances or is it a sample (not necessarily random) of instances from a larger set? If the dataset is a sample, then what is the larger set? Is the sample representative of the larger set (for example, geographic coverage)? If so, please describe how this representativeness was validated/verified. If it is not representative of the larger set, please describe why not (for example, to cover a more diverse range of instances, because instances were withheld or unavailable).*
+	- This dataset contains all possible instances, from the birth of the TSX to date; when aiming to predict the Canadian economy. However, if we aim to predict other economies, due to various other indices and measuring techniques, we are not certain if it would be perfectly representative. Any other economy could have other primary and secondary economic sectors affect the price of their composite index. For example, in the model found using the Canadian economy, the Energy sector did not seem to directly correlate to the price; however in another country where their primary export (for example) is oil, their energy sector would be *predicted* to have a stronger relationship to the price of the composite index.
+	
+4. *What data does each instance consist of? "Raw" data (for example, unprocessed text or images) or features? In either case, please provide a description.*
+	- All the instances convey the price of a certain security; be it a commodity index or an economic sector index. We are simply interested in the sector indices.
+5. *Is any information missing from individual instances? If so, please provide a description, explaining why this information is missing (for example, because it was unavailable). This does not include intentionally removed information, but might include, for example, redacted text.*
+	- There are missing observations in the P.E. Ratio (price to earnings ratio); which is presumed to be due to this value also being directly supplied by the TSX; and earnings are not always recorded. Also, the CPI (Consumer Price Index) misses one observation; where the reason is unknown. Due to both of these variables not influencing our model or analysis, these observations do not affect our results.
+6. *Are relationships between individual instances made explicit (for example, users' movie ratings, social network links)? If so, please describe how these relationships are made explicit.*
+	- No, since each sector is presumed to be independent. However, due to a few commonalities, there are securities that exist in multiple indices, making the variables dependent. We can omit this with interaction terms in the linear model. 
+	
+7. *Are there recommended data splits (for example, training, development/validation, testing)? If so, please provide a description of these splits, explaining the rationale behind them.*
+	- A data split is performed to seperately train on one set of data (the training data) and then test the model on another (the test data). This is done after the data cleaning and exploratory data analysis (numerical summaries, etc.)
+8. *Are there any errors, sources of noise, or redundancies in the dataset? If so, please provide a description.*
+	- There are no errors in the data, since all have been obtained from the TSX, which is a strictly controlled exchange that doesn't allow manipulation. Also, because the data has been directly sourced from the TSX, there is no worry about error. 
+	
+9. *Is the dataset self-contained, or does it link to or otherwise rely on external resources (for example, websites, tweets, other datasets)? If it links to or relies on external resources, a) are there guarantees that they will exist, and remain constant, over time; b) are there official archival versions of the complete dataset (that is, including the external resources as they existed at the time the dataset was created); c) are there any restrictions (for example, licenses, fees) associated with any of the external resources that might apply to a dataset consumer? Please provide descriptions of all external resources and any restrictions associated with them, as well as links or other access points, as appropriate.*
+	- This data will always be available and free-of-charge, due to it being sourced from a publicly available database. Due to the availability, it is constantly updated monthly, to allow any new data to be available for analysis.
+	-Every observation is important, and tells us something about the state of a part of the economy at one point in time. The data will therefore always exist, and continuously represent something that we can learn from.
+	
+10. *Does the dataset contain data that might be considered confidential (for example, data that is protected by legal privilege or by doctor-patient confidentiality, data that includes the content of individuals' non-public communications)? If so, please provide a description.*
+	- No. All data is available publicly.
+11. *Does the dataset contain data that, if viewed directly, might be offensive, insulting, threatening, or might otherwise cause anxiety? If so, please describe why.*
+	- No.
+12. *Does the dataset identify any sub-populations (for example, by age, gender)? If so, please describe how these subpopulations are identified and provide a description of their respective distributions within the dataset.*
+	- No. One could think of individual sector indices as 'sub-populations' of the composite index, each which contain a specific part of the economy. Each have securities pertaining to its respective sector, which convey the strength of any individual sector in the economy. 
+13. *Does the dataset contain data that might be considered sensitive in any way (for example, data that reveals race or ethnic origins, sexual orientations, religious beliefs, political opinions or union memberships, or locations; financial or health data; biometric or genetic data; forms of government identification, such as social security numbers; criminal history)? If so, please provide a description.*
+	- No
+
+**Collection process**
+
+1. *How was the data associated with each instance acquired? Was the data directly observable (for example, raw text, movie ratings), reported by subjects (for example, survey responses), or indirectly inferred/derived from other data (for example, part-of-speech tags, model-based guesses for age or language)? If the data was reported by subjects or indirectly inferred/derived from other data, was the data validated/verified? If so, please describe how.*
+	- The data was directly collected from the Toronto Stock Exchange, a freely publicly available database that has been structured in a reasonable and important format. These numbers represent large quantities of information, and are hard to be tampered with.
+2. *What mechanisms or procedures were used to collect the data (for example, hardware apparatuses or sensors, manual human curation, software programs, software APIs)? How were these mechanisms or procedures validated?*
+	- This dataset simply collected the data from a 3rd party source, the TSX. Due to this data being available publicly, there was no complex mechanism to acquire the data.
+3. *If the dataset is a sample from a larger set, what was the sampling strategy (for example, deterministic, probabilistic with specific sampling probabilities)?*
+	- This data represents population level data for the Canadian economy.
+4. *Who was involved in the data collection process (for example, students, crowdworkers, contractors) and how were they compensated (for example, how much were crowdworkers paid)?*
+	- All publically traded companies listed on the TSX were involved in this data, since each of them contribute in some way to the price; which is then what we analyze.
+5. *Over what timeframe was the data collected? Does this timeframe match the creation timeframe of the data associated with the instances (for example, recent crawl of old news articles)? If not, please describe the timeframe in which the data associated with the instances was created.*
+	- The data is recorded over 66 years; from 1956 to 2022, and we will be simply analyzing 24 years of data; from 1998-2022.
+6. *Were any ethical review processes conducted (for example, by an institutional review board)? If so, please provide a description of these review processes, including the outcomes, as well as a link or other access point to any supporting documentation.*
+	- None were needed, since the information was directly from the TSX.
+7. *Did you collect the data from the individuals in question directly, or obtain it via third parties or other sources (for example, websites)?*
+	- All the information was obtained from a third party source; the TSX.
+8. *Were the individuals in question notified about the data collection? If so, please describe (or show with screenshots or other information) how notice was provided, and provide a link or other access point to, or otherwise reproduce, the exact language of the notification itself.*
+	- Not every single company responded due to not every single one listed on the TSX being a part of an index (i.e., there are companies not listed on any index, yet listed on the stock exchange, for example; penny stocks^[small companies in regard to ones listed on the exchange (less than $500M market capitalization)]). All other companies do not have an option to be not listed, since they are publicly traded.
+9. *Did the individuals in question consent to the collection and use of their data? If so, please describe (or show with screenshots or other information) how consent was requested and provided, and provide a link or other access point to, or otherwise reproduce, the exact language to which the individuals consented.*
+	- Since the data is available publicly, no consent was required.
+10. *Has an analysis of the potential impact of the dataset and its use on data subjects (for example, a data protection impact analysis) been conducted? If so, please provide a description of this analysis, including the outcomes, as well as a link or other access point to any supporting documentation.*
+	- The impact of the stock market and indices have been studied heavily; where everyone involved in the market wishes to predict its direction. 
+
+**Preprocessing/cleaning/labeling**
+
+1. *Was any preprocessing/cleaning/labeling of the data done (for example, discretization or bucketing, tokenization, part-of-speech tagging, SIFT feature extraction, removal of instances, processing of missing values)? If so, please provide a description. If not, you may skip the remaining questions in this section.*
+	- Due to an inefficient structure in the dataset, the data had to be restructured, which was the major processing step in the pre-model stage of the analysis. 
+	- Variables that were unimportant to the analysis were removed (only primary and secondary economic sector indices were retained).
+2. *Was the "raw" data saved in addition to the preprocessed/cleaned/labeled data (for example, to support unanticipated future uses)? If so, please provide a link or other access point to the "raw" data.*
+	- The raw data was stored directly from Statistics Canada, and is available in 'inputs/data/raw_stock.csv'.
+3. *Is the software that was used to preprocess/clean/label the data available? If so, please provide a link or other access point.*
+	- The software used was `R` [@citeR] and `tidyverse` [@tidy].
+
+**Uses**
+
+1. *Has the dataset been used for any tasks already? If so, please provide a description.*
+	- This is not known; but it wouldn't be a surprise, due to the availability of the data. Also, the concise form of including only the sector indices and important securities must be beneficial to many individuals interested in macroeconomic indicators.
+2. *What (other) tasks could the dataset be used for?*
+	- Due to all commodity indices and sector indices being available in this dataset; from 1956, any other analysis can be performed. For example, an alysis of the Gold index would be one that may be of interest to many individuals looking to get into the 'gold-business'.
+3. *Is there anything about the composition of the dataset or the way it was collected and preprocessed/cleaned/labeled that might impact future uses? For example, is there anything that a dataset consumer might need to know to avoid uses that could result in unfair treatment of individuals or groups (for example, stereotyping, quality of service issues) or other risks or harms (for example, legal risks, financial harms)? If so, please provide a description. Is there anything a dataset consumer could do to mitigate these risks or harms?*
+	- Due to the data being sourced directly from the TSX, there is no bias present. All indices that were listed on the exchange are included, and therefore there can exist no 'unfair treatment'.
+4. *Are there tasks for which the dataset should not be used? If so, please provide a description.*
+	- This dataset cannot be used to aim to predict another economy. For example, one may assume due to the similar nature of stock exchanges, we can easily apply our data to the US Stock Exchange; however this is not true. Factors affecting only the country would affect the individual sector indices, and therefore this data should not be aimed to predict the world's economy.
+
+**Distribution**
+
+1. *Will the dataset be distributed to third parties outside of the entity (for example, company, institution, organization) on behalf of which the dataset was created? If so, please provide a description.*
+	- The data is distributed to any individual who seeks it.
+2. *How will the dataset be distributed (for example, tarball on website, API, GitHub)? Does the dataset have a digital object identifier (DOI)?*
+	- The data set is available from Statistics Canada; which can be referenced in R. The doi of this dataset is: 'https://doi.org/10.25318/1010012501-eng'.
+3. *When will the dataset be distributed?*
+	- The dataset is updated monthly, and 'distributed' to the Statics Canada website.
+4. *Will the dataset be distributed under a copyright or other intellectual property (IP) license, and/or under applicable terms of use (ToU)? If so, please describe this license and/ or ToU, and provide a link or other access point to, or otherwise reproduce, any relevant licensing terms or ToU, as well as any fees associated with these restrictions.*
+	- Dud to the 'open-source' nature of the data, there is no copyright to it.
+5. *Have any third parties imposed IP-based or other restrictions on the data associated with the instances? If so, please describe these restrictions, and provide a link or other access point to, or otherwise reproduce, any relevant licensing terms, as well as any fees associated with these restrictions.*
+	- No
+6. *Do any export controls or other regulatory restrictions apply to the dataset or to individual instances? If so, please describe these restrictions, and provide a link or other access point to, or otherwise reproduce, any supporting documentation.*
+	- No
+7. *Any other comments?*
+	- TBD
+
+**Maintenance**
+
+1. *Who will be supporting/hosting/maintaining the dataset?*
+	- The TSX
+2. *How can the owner/curator/manager of the dataset be contacted (for example, email address)?*
+	- The email of Statistics Canada (infostats@statcan.gc.ca) can be used for contact; however, once again, due to the data being sourced from the TSX; this individual would have no say in the data.
+3. *Is there an erratum? If so, please provide a link or other access point.*
+	- No
+4. *Will the dataset be updated (for example, to correct labeling errors, add new instances, delete instances)? If so, please describe how often, by whom, and how updates will be communicated to dataset consumers (for example, mailing list, GitHub)?*
+	- This dataset is updated monthly; however past observations are not updated, only present ones. 
+5. *Will older versions of the dataset continue to be supported/hosted/maintained? If so, please describe how. If not, please describe how its obsolescence will be communicated to dataset consumers.*
+	- Each older dataset is still valid if that is the time period one is interested in. Due to the price of a security on one day is unaffected by the price much later, all past data is relevant; if that is the interest.
+6. *If others want to extend/augment/build on/contribute to the dataset, is there a mechanism for them to do so? If so, please provide a description. Will these contributions be validated/verified? If so, please describe how. If not, why not? Is there a process for communicating/distributing these contributions to dataset consumers? If so, please provide a description.*
+	- No, since the data is directly sourced from the TSX.
+
 
 
 \newpage
